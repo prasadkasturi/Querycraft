@@ -11,21 +11,11 @@ bedrock_runtime = session.client('bedrock-runtime', region_name='us-east-1')
 bedrock_modedl_id = 'cohere.command-text-v14'  # replace with your model id
 #bedrock_modedl_id = 'anthropic.claude-3-5-sonnet-20240620-v1:0'
 
-# payload = {"prompt": "Generate a SQL query to select all records from sample_table where age is greater than 30.","max_tokens": 100,
-#                 "temperature": 0.5,
-#                 "stop_sequences": []}
-
-# payload = {"prompt": "Generate a SQL query to select records from sample_table whose age is multiple of 3.","max_tokens": 100,
-#                 "temperature": 0.5,
-#                 "stop_sequences": []}
-
 # payload =  "Generate a SQL query to select records from sample_table where the  city is  New York.","max_tokens";
-payload =  "Generate a SQL query to select distinct names from sample_table where the name starts with p or q or r or s.","max_tokens"
-
+#payload =  "Generate a SQL query to select distinct names from sample_table where the name starts with p or q or r or s."
 # payload =  "Generate a SQL query to select records from sample_table whose name has X in it.","max_tokens"
                
-
-# payload = "Generate a SQL query to select records from sample_table where the city has India in the city name."
+payload = "Generate a SQL query to select records from sample_table where the city has India in the city name."
                 
 
 def prompt_template(ddl_schema, additional_text):
@@ -36,22 +26,16 @@ def prompt_template(ddl_schema, additional_text):
         "As a highly intelligent SQL expert, analyze the following DDL schema to understand the structure, "
         "relationships, and constraints of the database. Based on this schema, generate standard SQL syntax queries supported by SQLite3.\n"
         "or provide insights as requested.\n\n"
-        "DDL Schema:\n"
-        "{ddl_schema}\n"
         "Instructions:\n"
-        "1. If the schema is already created, stop creating and proceed to the next step.\n"
-        "2. Identify the tables, columns, data types, and constraints (e.g., PRIMARY KEY, FOREIGN KEY).\n"
-        "3. generate standard SQL syntax queries supported by SQLite3 not POSTGreSQL.\"n"
-        "4. For case-insensitive text matching, user LOWER(column) LIKE 'value'. Do not use ILIKE instead use LIKE.\n"
-        "5. Understand relationships between tables (if any).\n"
-        "6. Be prepared to generate SQL queries based on this schema, such as filtering, aggregating, or joining data.\n"
-        "7. Provide explanations for the generated queries if needed."
-        "{additional_text}\n\n"
-        "Use the additional_text to generate SQL queries or provide insights as requested.\n\n"
+        "1. If the schema {ddl_schema} is already created, stop creating and proceed to the next step.\n"
+        "2. Identify the tables, columns, data types, and constraints (e.g., PRIMARY KEY, FOREIGN KEY) based on the schema.\n"
+        "3. Understand relationships between tables (if any).\n"
+        "4. {additional_text}\n\n"
+        "5. Use this SQL Statements to generate SQL queries or provide insights as requested.\n\n"
     )
     
     # Return the prompt with the DDL schema inserted
-    return {"prompt": prompt_template.format(ddl_schema=ddl_schema, additional_text=additional_text), "max_tokens": 512,
+    return {"prompt": prompt_template.format(ddl_schema=ddl_schema, additional_text=additional_text), "max_tokens": 1000,
         "temperature": 0.1,
         "stop_sequences": []}
 
@@ -63,13 +47,6 @@ def invoke_bedrock_model(model_id, payload):
     try: 
         response = bedrock_runtime.invoke_model(
            modelId=model_id,
-            # body=json.dumps({
-            #     #"messages": [{"role": "user", "content": prompt}],  # Use "content" instead of "prompt"
-            #     prompt: prompt,  # Use "prompt" as the key for the input text
-            #     # "max_tokens": 512,  # Use "max_tokens" instead of "maxTokens"
-            #     # "temperature": 0.2
-            #     #"anthropic_version": "claude-3"  # Add the required version key
-            # }),
             body=json.dumps({
                 "prompt": payload["prompt"],
             }).encode('utf-8'),  # Use "prompt" as the key for the input text
@@ -80,8 +57,6 @@ def invoke_bedrock_model(model_id, payload):
     except (ClientError, Exception) as e:
         print(f"ERROR: Can't invoke '{model_id}'. Reason: {e}")
         exit(1)
-
-
 
 def setup_sample_db(db_name="sample.db"):
     """
@@ -192,24 +167,9 @@ if __name__ == "__main__":
     # Set up the sample database
     setup_sample_db()
 
-    # Define a SQL query to run
-    # sql_query = "SELECT * FROM sample_table WHERE age > 30;"
-
-    # # Run the SQL query and get the results
-    # results = run_sql_query("sample.db", sql_query)
-
-    # # Print the results
-    # for row in results:
-    #     print(row)
-
-    # print("The invoking response: ", feed_ddl_to_bedrock_model(extract_ddl_from_db("sample.db")))
-
-    # Example of invoking the Bedrock model with a prompt
+    
     response = feed_ddl_to_bedrock_model(extract_ddl_from_db("sample.db"))
     print("Bedrock Model Response:", response)
-
-    #run the SQL query using the generated SQL from the model   
-    #sql_query = plain_text_to_sql()
 
     #extract the sql query from the response
     sql_query = response.split("```sql")[1].split("```")[0].strip()
