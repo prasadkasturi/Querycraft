@@ -19,19 +19,16 @@ bedrock_modedl_id = 'cohere.command-text-v14'  # replace with your model id
 #                 "temperature": 0.5,
 #                 "stop_sequences": []}
 
-# payload = {"prompt": "Generate a SQL query to select records from sample_table where the  city is  New York.","max_tokens": 100,
-#                 "temperature": 0.5,
-#                 "stop_sequences": []}
+# payload =  "Generate a SQL query to select records from sample_table where the  city is  New York.","max_tokens";
+payload =  "Generate a SQL query to select distinct names from sample_table where the name starts with p or q or r or s.","max_tokens"
 
-# payload = {"prompt": "Generate a SQL query to select records from sample_table whose name has X in it.","max_tokens": 100,
-#                 "temperature": 0.5,
-#                 "stop_sequences": []}
+# payload =  "Generate a SQL query to select records from sample_table whose name has X in it.","max_tokens"
+               
 
-payload = {"prompt": "Generate a SQL query to select records from sample_table where the city has India in the city name.","max_tokens": 100,
-                "temperature": 0.5,
-                "stop_sequences": []}
+# payload = "Generate a SQL query to select records from sample_table where the city has India in the city name."
+                
 
-def prompt_template(ddl_schema):
+def prompt_template(ddl_schema, additional_text):
     """
     Generates a prompt for the LLM to understand the DDL schema and generate SQL queries.
     """
@@ -42,16 +39,19 @@ def prompt_template(ddl_schema):
         "DDL Schema:\n"
         "{ddl_schema}\n"
         "Instructions:\n"
-        "1. Identify the tables, columns, data types, and constraints (e.g., PRIMARY KEY, FOREIGN KEY).\n"
-        "2. generate standard SQL syntax queries supported by SQLite3 not POSTGreSQL.\"n"
-        "3. For case-insensitive text matching, user LOWER(column) LIKE 'value'. Do not use ILIKE instead use LIKE.\n"
-        "4. Understand relationships between tables (if any).\n"
-        "5. Be prepared to generate SQL queries based on this schema, such as filtering, aggregating, or joining data.\n"
-        "6. Provide explanations for the generated queries if needed."
+        "1. If the schema is already created, stop creating and proceed to the next step.\n"
+        "2. Identify the tables, columns, data types, and constraints (e.g., PRIMARY KEY, FOREIGN KEY).\n"
+        "3. generate standard SQL syntax queries supported by SQLite3 not POSTGreSQL.\"n"
+        "4. For case-insensitive text matching, user LOWER(column) LIKE 'value'. Do not use ILIKE instead use LIKE.\n"
+        "5. Understand relationships between tables (if any).\n"
+        "6. Be prepared to generate SQL queries based on this schema, such as filtering, aggregating, or joining data.\n"
+        "7. Provide explanations for the generated queries if needed."
+        "{additional_text}\n\n"
+        "Use the additional_text to generate SQL queries or provide insights as requested.\n\n"
     )
     
     # Return the prompt with the DDL schema inserted
-    return {"prompt": prompt_template.format(ddl_schema=ddl_schema), "max_tokens": 512,
+    return {"prompt": prompt_template.format(ddl_schema=ddl_schema, additional_text=additional_text), "max_tokens": 512,
         "temperature": 0.1,
         "stop_sequences": []}
 
@@ -170,7 +170,7 @@ def feed_ddl_to_bedrock_model(ddl_statements):
     ddl_string = "\n".join(ddl_statements)
 
     # Invoke the Bedrock model with the DDL string
-    response = invoke_bedrock_model(bedrock_modedl_id, prompt_template(ddl_string))
+    response = invoke_bedrock_model(bedrock_modedl_id, prompt_template(ddl_string, payload))
 
     return response 
 
@@ -202,14 +202,14 @@ if __name__ == "__main__":
     # for row in results:
     #     print(row)
 
-    feed_ddl_to_bedrock_model(extract_ddl_from_db("sample.db"))
+    # print("The invoking response: ", feed_ddl_to_bedrock_model(extract_ddl_from_db("sample.db")))
 
     # Example of invoking the Bedrock model with a prompt
-    response = invoke_bedrock_model(bedrock_modedl_id, payload)
+    response = feed_ddl_to_bedrock_model(extract_ddl_from_db("sample.db"))
     print("Bedrock Model Response:", response)
 
     #run the SQL query using the generated SQL from the model   
-    sql_query = plain_text_to_sql()
+    #sql_query = plain_text_to_sql()
 
     #extract the sql query from the response
     sql_query = response.split("```sql")[1].split("```")[0].strip()
