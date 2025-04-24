@@ -3,6 +3,7 @@ from botocore.exceptions import ClientError
 import sqlite3
 import json
 from sample_data import SAMPLE_DATA  # Import the sample data
+import os
 
 # this is a runtime parameter of AWS Bedrock
 
@@ -17,7 +18,8 @@ bedrock_modedl_id = 'cohere.command-text-v14'  # replace with your model id
                
 # payload = "Generate a SQL query to select records from sample_table where the city has India in the city name."
 
-payload = "Generate a SQL query to get the sum of all the ages where the person is from cities that are either Los Angeles or San Francisco."
+#payload = "Generate a SQL query to get the sum of all the ages where the person is from cities that are either Los Angeles or San Francisco."
+payload = "Generate a SQL query to select records from sample_db where which authors books are most loaned along with the titles."
                 
 
 def prompt_template(ddl_schema, additional_text):
@@ -165,10 +167,60 @@ def plain_text_to_sql():
     
     return sql_query
 
-if __name__ == "__main__":
-    # Set up the sample database
-    setup_sample_db()
+def setup_and_validate_database(db_name="sample.db", sql_file_path="SampleData.sql"):
+    """
+    Sets up the SQLite database, loads SQL data, and validates if the database is ready.
+    Returns True if the database is ready, otherwise False.
+    """
+    try:
+        # Resolve the absolute path of the SQL file
+        sql_file_path = os.path.join(os.path.dirname(__file__), sql_file_path)
 
+        # Step 1: Set up the database connection
+        conn = sqlite3.connect(db_name)
+        cursor = conn.cursor()
+
+        # Step 2: Load SQL data from the file
+        with open(sql_file_path, 'r', encoding='utf-8') as sql_file:
+            sql_script = sql_file.read()
+        cursor.executescript(sql_script)
+        conn.commit()
+        print(f"SQL data from '{sql_file_path}' has been loaded into the database '{db_name}' successfully.")
+
+        # Step 3: Validate the database by checking if required tables exist
+        required_tables = ["Authors", "Books", "Loans"]
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
+        existing_tables = [table[0] for table in cursor.fetchall()]
+
+        for table in required_tables:
+            if table not in existing_tables:
+                print(f"Error: Required table '{table}' is missing.")
+                return False
+
+        print("All required tables are present. Database is ready.")
+        return True
+
+    except sqlite3.Error as e:
+        print(f"Error during database setup or validation: {e}")
+        return False
+
+    except FileNotFoundError as e:
+        print(f"Error: {e}")
+        return False
+
+    finally:
+        # Close the database connection
+        conn.close()
+
+
+if __name__ == "__main__":
+    # Call the consolidated method to set up and validate the database
+    database_ready = setup_and_validate_database()
+
+    if database_ready:
+        print("Database setup and validation completed successfully.")
+    else:
+        print("Database setup or validation failed.")
     
     response = feed_ddl_to_bedrock_model(extract_ddl_from_db("sample.db"))
     print("Bedrock Model Response:", response)
