@@ -12,10 +12,12 @@ bedrock_modedl_id = 'cohere.command-text-v14'  # replace with your model id
 #bedrock_modedl_id = 'anthropic.claude-3-5-sonnet-20240620-v1:0'
 
 # payload =  "Generate a SQL query to select records from sample_table where the  city is  New York.","max_tokens";
-#payload =  "Generate a SQL query to select distinct names from sample_table where the name starts with p or q or r or s."
+# payload =  "Generate a SQL query to select distinct names from sample_table where the name starts with p or q or r or s."
 # payload =  "Generate a SQL query to select records from sample_table whose name has X in it.","max_tokens"
                
-payload = "Generate a SQL query to select records from sample_table where the city has India in the city name."
+# payload = "Generate a SQL query to select records from sample_table where the city has India in the city name."
+
+payload = "Generate a SQL query to get the sum of all the ages where the person is from cities that are either Los Angeles or San Francisco."
                 
 
 def prompt_template(ddl_schema, additional_text):
@@ -176,6 +178,6 @@ if __name__ == "__main__":
    
     print("Generated SQL Query:", sql_query)
     results = run_sql_query("sample.db", sql_query)
-    print("Results from Generated SQL Query:")  
+    print("Results from Generated SQL Query:", results)  
     for row in results:
         print("Retrived row: ", row)
