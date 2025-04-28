@@ -28,7 +28,7 @@ CREATE TABLE Loans (
     FOREIGN KEY (book_id) REFERENCES Books(book_id)
 );
 
--- Insert sample data for Authors
+-- Insert sample data for Authors (25 rows)
 INSERT INTO Authors (first_name, last_name, birth_date, nationality) VALUES
 ('Jane', 'Austen', '1775-12-16', 'British'),
 ('George', 'Orwell', '1903-06-25', 'British'),
@@ -53,10 +53,10 @@ INSERT INTO Authors (first_name, last_name, birth_date, nationality) VALUES
 ('Fyodor', 'Dostoevsky', '1821-11-11', 'Russian'),
 ('Umberto', 'Eco', '1932-01-05', 'Italian'),
 ('Alice', 'Munro', '1931-07-10', 'Canadian'),
-('Gabriel', 'García Márquez', '1927-03-06', 'Colombian'),
-('Orhan', 'Pamuk', '1952-06-07', 'Turkish');
+('J.K.', 'Rowling', '1965-07-31', 'British'),
+('Stephen', 'King', '1947-09-21', 'American');
 
--- Insert sample data for Books
+-- Insert sample data for Books (25 rows)
 INSERT INTO Books (title, author_id, publication_year, isbn, genre) VALUES
 ('Pride and Prejudice', 1, 1813, '9780141439518', 'Romance'),
 ('1984', 2, 1949, '9780451524935', 'Dystopian'),
@@ -81,33 +81,21 @@ INSERT INTO Books (title, author_id, publication_year, isbn, genre) VALUES
 ('Crime and Punishment', 21, 1866, '9780143058144', 'Psychological Fiction'),
 ('The Name of the Rose', 22, 1980, '9780156001311', 'Historical Mystery'),
 ('Dear Life', 23, 2012, '9780307743725', 'Short Stories'),
-('Love in the Time of Cholera', 24, 1985, '9780307389732', 'Romance'),
-('My Name Is Red', 25, 1998, '9780375706851', 'Historical Fiction');
+('Harry Potter and the Philosopher''s Stone', 24, 1997, '9780747532699', 'Fantasy'),
+('The Shining', 25, 1977, '9780307743657', 'Horror');
 
--- Insert sample data for Loans
-INSERT INTO Loans (book_id, borrower_name, loan_date, return_date) VALUES
-(1, 'Emma Thompson', '2023-01-15', '2023-02-01'),
-(2, 'Michael Johnson', '2023-01-20', '2023-02-10'),
-(3, 'Sophia Lee', '2023-02-01', '2023-02-22'),
-(4, 'Daniel Brown', '2023-02-05', '2023-02-26'),
-(5, 'Olivia Davis', '2023-02-10', NULL),
-(6, 'William Wilson', '2023-02-15', '2023-03-08'),
-(7, 'Ava Martinez', '2023-02-20', NULL),
-(8, 'James Taylor', '2023-03-01', '2023-03-22'),
-(9, 'Isabella Anderson', '2023-03-05', '2023-03-26'),
-(10, 'Ethan Thomas', '2023-03-10', NULL),
-(11, 'Mia Jackson', '2023-03-15', '2023-04-05'),
-(12, 'Alexander White', '2023-03-20', '2023-04-10'),
-(13, 'Charlotte Harris', '2023-04-01', NULL),
-(14, 'Benjamin Clark', '2023-04-05', '2023-04-26'),
-(15, 'Amelia Lewis', '2023-04-10', '2023-05-01'),
-(16, 'Henry Walker', '2023-04-15', NULL),
-(17, 'Emily Green', '2023-04-20', '2023-05-11'),
-(18, 'Sebastian Hall', '2023-05-01', '2023-05-22'),
-(19, 'Sofia Young', '2023-05-05', NULL),
-(20, 'Jack King', '2023-05-10', '2023-05-31'),
-(21, 'Avery Scott', '2023-05-15', '2023-06-05'),
-(22, 'Scarlett Adams', '2023-05-20', NULL),
-(23, 'Liam Baker', '2023-06-01', '2023-06-22'),
-(24, 'Grace Nelson', '2023-06-05', NULL),
-(25, 'Noah Carter', '2023-06-10', '2023-07-01');
+-- Insert sample data for Loans (100 rows)
+INSERT INTO Loans (book_id, borrower_name, loan_date, return_date)
+SELECT 
+    CASE 
+        WHEN RANDOM() < 0.2 THEN 24 -- Harry Potter (20% chance)
+        WHEN RANDOM() < 0.25 THEN 25 -- The Shining (15% chance)
+        WHEN RANDOM() < 0.33 THEN 2 -- 1984 (10% chance)
+        ELSE (ABS(RANDOM()) % 25) + 1 -- Other books (55% chance)
+    END AS book_id,
+    'Borrower ' || (ROW_NUMBER() OVER ()) AS borrower_name,
+    DATE('2023-01-01', '+' || (ABS(RANDOM()) % 365) || ' days') AS loan_date,
+    CASE WHEN RANDOM() < 0.8 THEN DATE('2023-01-01', '+' || (ABS(RANDOM()) % 365 + 14) || ' days') ELSE NULL END AS return_date
+FROM (SELECT 1 UNION ALL SELECT 1 UNION ALL SELECT 1 UNION ALL SELECT 1)
+CROSS JOIN (SELECT 1 UNION ALL SELECT 1 UNION ALL SELECT 1 UNION ALL SELECT 1 UNION ALL SELECT 1)
+LIMIT 100;

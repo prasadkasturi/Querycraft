@@ -11,9 +11,31 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(message)s",
 )
+# Resolve the absolute path of the SQL file
+sql_file_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "data_file", "SampleData.sql"))  # Correct path
 
 # Initialize BedrockInvoker
 bedrock_invoker = BedrockInvoker(profile_name='pkawsazurelogin', region_name='us-east-1')
+
+def load_data_into_database(db_name):
+    # Check if the database is empty and load data if necessary
+    if is_database_empty(db_name):
+        logging.info("db_name: %s", db_name)
+        logging.info("sql_file_path: %s", sql_file_path)    
+        load_sql_data(db_name, sql_file_path)
+        database_status = "Database was empty. Data has been loaded."
+        logging.info("Database was empty. Data has been loaded.")
+    else:
+        database_status = "Database is already populated. Skipping data load."
+        logging.info("Database is already populated. Skipping data load.")
+        # return load_sql_data(db_name, sql_file_path=sql_file_path)
+
+    return {
+        "database_status": database_status,
+        "db_name": db_name,     
+        "sql_file_path": sql_file_path
+    }
+
 
 def prompt_template(ddl_schema, additional_text):
     """
@@ -35,26 +57,15 @@ def prompt_template(ddl_schema, additional_text):
             "temperature": 0.1,
             "stop_sequences": []}
 
-def process_sql_request(prompt):
+def process_sql_request(prompt, db_name):
     """
     Processes the SQL request: checks database, invokes Bedrock, and runs the SQL query.
     """
-    db_name = "sample.db"
-    sql_file_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "data_file", "SampleData.sql"))  # Correct path
+    
+    
     max_retries = 2  # Number of retries for Bedrock invocation
 
-    # Check if the database is empty and load data if necessary
-    if is_database_empty(db_name):
-        logging.info("db_name: %s", db_name)
-        logging.info("sql_file_path: %s", sql_file_path)    
-        load_sql_data(db_name, sql_file_path)
-        database_status = "Database was empty. Data has been loaded."
-        logging.info("Database was empty. Data has been loaded.")
-    else:
-        database_status = "Database is already populated. Skipping data load."
-        logging.info("Database is already populated. Skipping data load.")
-
-    # Extract the DDL from the database
+    
     ddl_statements = extract_ddl_from_db(db_name)
     logging.info("Extracted DDL statements from the database.", ddl_statements)
 
@@ -89,21 +100,18 @@ def process_sql_request(prompt):
 
     # Extract the SQL query from the response
     if "```sql" in response:
-        sql_query = response.split("```sql")[1].split("```")[0].strip()
+        sql_query = response.split("```sql")[1].split("```")[0].strip().strip("\n")
     else:
-        sql_query = response.strip()
+        sql_query = response.strip().strip("\n")
     logging.info(f"Generated SQL query: {sql_query}")
 
     # Run the SQL query on the database
     results = run_sql_query(db_name, sql_query)
     logging.info(f"SQL query executed successfully. Retrieved {len(results)} rows.")
 
-    return {
-        "database_status": database_status,
-        "generated_sql": sql_query,
-        "sql_results": results
-    }
+    return {"generated_sql": sql_query, "results": results}
 
+   
 def run_sql_query(db_name, query):
     """
     Runs a SQL query on the specified SQLite3 database.
