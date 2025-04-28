@@ -1,5 +1,12 @@
 import sqlite3
 import os
+import logging
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+)
 
 def is_database_empty(db_name):
     """
@@ -19,7 +26,7 @@ def is_database_empty(db_name):
         return len(tables) == 0
 
     except sqlite3.Error as e:
-        print(f"Error checking database: {e}")
+        logging.error(f"Error checking database: {e}")
         return False
 
     finally:
@@ -46,13 +53,13 @@ def load_sql_data(db_name, sql_file_path):
         # Execute the SQL script
         cursor.executescript(sql_script)
         conn.commit()
-        print(f"SQL data from '{sql_file_path}' has been loaded into the database '{db_name}' successfully.")
+        logging.info(f"SQL data from '{sql_file_path}' has been loaded into the database '{db_name}' successfully.")
 
     except sqlite3.Error as e:
-        print(f"Error loading SQL data: {e}")
+        logging.error(f"Error loading SQL data: {e}")
 
     except FileNotFoundError as e:
-        print(f"Error: {e}")
+        logging.error(f"Error: {e}")
 
     finally:
         # Close the database connection
@@ -80,13 +87,16 @@ def extract_ddl_from_db(db_name):
 
             # Get the CREATE TABLE statement for each table
             cursor.execute(f"SELECT sql FROM sqlite_master WHERE name='{table_name}';")
-            create_statement = cursor.fetchone()[0]
-            ddl_statements.append(create_statement)
+            create_statement = cursor.fetchone()
+            if create_statement and create_statement[0]:  # Ensure the statement is not None
+                ddl_statements.append(create_statement[0])
+                logging.info(f"Extracted DDL for table '{table_name}': {create_statement[0]}")
 
+        # logging.info(f"Extracted DDL statements for {len(tables)} tables from the database '{db_name}'.")
         return ddl_statements
 
     except sqlite3.Error as e:
-        print(f"Error extracting DDL: {e}")
+        logging.error(f"Error extracting DDL: {e}")
         return []
 
     finally:
