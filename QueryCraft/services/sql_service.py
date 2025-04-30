@@ -1,9 +1,10 @@
 from utils.database_utils import is_database_empty, load_sql_data, extract_ddl_from_db
-from utils.bedrock_utils import BedrockInvoker
+from services.model_invoker import CohereInvoker, ClaudeInvoker, OpenAIInvoker, ModelInvoker, get_model_invoker
 import sqlite3
 import sys
 import os
 import logging
+import time
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 # Configure logging
@@ -15,7 +16,6 @@ logging.basicConfig(
 sql_file_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "data_file", "SampleData.sql"))  # Correct path
 
 # Initialize BedrockInvoker
-bedrock_invoker = BedrockInvoker(profile_name='pkawsazurelogin', region_name='us-east-1')
 
 def load_data_into_database(db_name):
     # Check if the database is empty and load data if necessary
@@ -42,61 +42,59 @@ def prompt_template(ddl_schema, additional_text):
     Generates a prompt for the LLM to understand the DDL schema and generate SQL queries.
     """
     prompt_template = (
-        "As a highly intelligent SQL expert, analyze the following DDL schema to understand the structure, "
-        "relationships, and constraints of the database. Based on this schema, generate standard SQL syntax queries supported by SQLite3.\n"
-        "or provide insights as requested.\n\n"
+       "As an expert SQL analyst, examine the following DDL schema:\n\n"
+        "{ddl_schema}\n\n"
+        "Based on this schema, generate an optimized SQL query for SQLite3 that addresses the following request:\n\n"
+        "{additional_text}\n\n"
         "Instructions:\n"
-        "1. Identify and remember the exact tables, columns, data types, and constraints (e.g., PRIMARY KEY, FOREIGN KEY) based on the schema {ddl_schema}.\n"
-        "2. Understand relationships between tables (if any).\n"
-        "3. query: {additional_text}\n\n"
-        "4. Use the query to generate simple yet highly optimized SQL query.\n\n"
-        "5. Verify that generated SQL query only has the columns that are part of the provided schema'.\n\n"
-        "6. Give the response output as only the requested SQL Query\n"
+        "1. Analyze the schema to identify tables, columns, data types, and constraints (PRIMARY KEY, FOREIGN KEY).\n"
+        "2. Determine table relationships.\n"
+        "3. Construct a SQL query that:\n"
+        "   - Addresses the specific request\n"
+        "   - Uses only columns present in the provided schema\n"
+        "   - Is optimized for performance\n"
+        "   - Follows SQLite3 syntax\n\n"
+        "Provide only the SQL query as your response, without any additional explanation."
     )
     return {"prompt": prompt_template.format(ddl_schema=ddl_schema, additional_text=additional_text),
             "temperature": 0.1,
             "stop_sequences": []}
 
-def process_sql_request(prompt, db_name):
+def process_sql_request(prompt: str, db_name: str, model_type: str) -> dict:
     """
-    Processes the SQL request: checks database, invokes Bedrock, and runs the SQL query.
+    Processes the SQL request: checks database, invokes the selected model, and runs the SQL query.
     """
-    
-    
-    max_retries = 2  # Number of retries for Bedrock invocation
+    max_retries = 2  # Number of retries for model invocation
 
-    
+    # Extract the DDL from the database
     ddl_statements = extract_ddl_from_db(db_name)
-    logging.info("Extracted DDL statements from the database.", ddl_statements)
+    logging.info(f"Extracted DDL statements from the database: {ddl_statements}")
 
-    # Retry mechanism for Bedrock invocation
+    # Get the appropriate model invoker
+    invoker = get_model_invoker(model_type)
+
+    # Retry mechanism for model invocation
     response = None
     prompt_text = prompt_template(ddl_statements, prompt)["prompt"]
     for attempt in range(max_retries + 1):
         try:
-            logging.info("Attempting to invoke Bedrock model (Attempt %d/%d)... Prompt: %s", attempt + 1, max_retries + 1, prompt_text)
-            # Generate SQL query using Bedrock
-            response = bedrock_invoker.invoke_model(
-                model_id="cohere.command-text-v14",  # Replace with your model ID
-                prompt=prompt_text,
-                max_tokens=512,
-                temperature=0.1,
-                stop_sequences=[]
-            )
+            logging.info(f"Attempting to invoke {model_type} model (Attempt {attempt + 1}/{max_retries + 1})... Prompt: {prompt_text}")
+            response = invoker.invoke(prompt_text, max_tokens=512, temperature=0.1, stop_sequences=[])
             if response:  # Exit the retry loop if a valid response is received
-                logging.info("Bedrock model invocation successful.", response)
+                logging.info(f"{model_type.capitalize()} model invocation successful. Response: {response}")
                 break
         except Exception as e:
             if attempt < max_retries:
-                logging.warning(f"Retrying Bedrock invocation (Attempt {attempt + 1}/{max_retries})...")
+                logging.warning(f"Retrying {model_type} model invocation (Attempt {attempt + 1}/{max_retries})...")
+                time.sleep(2)  # Add a delay between retries
             else:
-                logging.error(f"Bedrock Invocation Failed: {e}")
-                raise Exception(f"Bedrock Invocation Failed: {e}")
+                logging.error(f"{model_type.capitalize()} Invocation Failed: {e}")
+                raise Exception(f"{model_type.capitalize()} Invocation Failed: {e}")
 
     # Check if the response is None
     if response is None:
-        logging.error("Bedrock returned no response.")
-        raise Exception("Bedrock returned no response.")
+        logging.error(f"{model_type.capitalize()} returned no response.")
+        raise Exception(f"{model_type.capitalize()} returned no response.")
 
     # Extract the SQL query from the response
     if "```sql" in response:

@@ -10,6 +10,7 @@ router = APIRouter()
 class PromptRequest(BaseModel):
     prompt: str = Field(..., description="The natural language query or instruction for generating SQL.", example="Generate a SELECT SQL query to select records from sample_db where which author's books are most loaned along with the titles.")
     db_name: str = Field(..., description="The name of the SQLite database file.", example="sample.db")
+    model_type: str = Field(..., description="The type of LLM Model to use for SQL generation.", example="cohere")
 
 class LoadDataRequest(BaseModel):
     db_name: str = Field(..., description="The name of the SQLite database file.", example="sample.db")
@@ -22,7 +23,7 @@ async def generate_sql(request: PromptRequest):
     # Validate the request
 
     try:
-        response = JSONResponse(content=process_sql_request(request.prompt, request.db_name))
+        response = JSONResponse(content=process_sql_request(request.prompt, request.db_name, request.model_type))
         # Set Cache-Control header to prevent caching
         response.headers["Cache-Control"] = "no-store"
         return response
